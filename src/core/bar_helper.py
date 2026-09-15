@@ -781,6 +781,85 @@ class OsThemeManager(QObject):
             refresh_widget_style(child)
 
 
+class AnimatedContextMenu(QMenu):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+
+        self._animation = None
+        self._closing = False
+        self._final_geometry = None
+
+    def show_animated(self, position, duration=300):
+        self.adjustSize()
+
+        final_geometry = QRect(
+            position.x(),
+            position.y(),
+            self.sizeHint().width(),
+            self.sizeHint().height(),
+        )
+
+        self._final_geometry = final_geometry
+        self._closing = False
+
+        center_y = final_geometry.center().y()
+
+        start_geometry = QRect(
+            final_geometry.x(),
+            center_y,
+            final_geometry.width(),
+            1,
+        )
+
+        self.setGeometry(start_geometry)
+        self.show()
+        self.activateWindow()
+
+        self._animation = QPropertyAnimation(self, b"geometry", self)
+        self._animation.setDuration(duration)
+        self._animation.setStartValue(start_geometry)
+        self._animation.setEndValue(final_geometry)
+        self._animation.setEasingCurve(QEasingCurve.Type.OutCubic)
+        self._animation.start()
+
+    def hide_animated(self, duration=300):
+        if self._closing or not self.isVisible():
+            return
+
+        self._closing = True
+
+        current_geometry = self.geometry()
+        center_y = self._final_geometry.center().y()
+
+        end_geometry = QRect(
+            current_geometry.x(),
+            center_y,
+            current_geometry.width(),
+            1,
+        )
+
+        self._animation = QPropertyAnimation(self, b"geometry", self)
+        self._animation.setDuration(duration)
+        self._animation.setStartValue(current_geometry)
+        self._animation.setEndValue(end_geometry)
+        self._animation.setEasingCurve(QEasingCurve.Type.InCubic)
+
+        self._animation.finished.connect(self._finish_hide)
+        self._animation.start()
+
+    def _finish_hide(self):
+        self._closing = False
+        super().hide()
+
+    def hideEvent(self, event):
+        if not self._closing and self.isVisible():
+            event.ignore()
+            self.hide_animated()
+            return
+
+        super().hideEvent(event)
+
+
 class BarContextMenu:
     """A class to handle the context menu for a bar."""
 
@@ -792,8 +871,7 @@ class BarContextMenu:
         self._autohide_bar = autohide_bar
 
     def show(self, position):
-        self._menu = QMenu(self.parent)
-        self._menu.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        self._menu = AnimatedContextMenu(self.parent)
         apply_qmenu_style(self._menu)
         self._menu.setProperty("class", "context-menu dark" if GlobalState.is_dark() else "context-menu")
         self._menu.aboutToHide.connect(self._on_menu_about_to_hide)
@@ -842,8 +920,14 @@ class BarContextMenu:
         exit_action = self._menu.addAction("Exit")
         exit_action.triggered.connect(partial(exit_application, "Exiting Application from context menu..."))
 
-        self._menu.popup(self.parent.mapToGlobal(position))
-        self._menu.activateWindow()
+        global_position = self.parent.mapToGlobal(position)
+        self._menu.show_animated(global_position)
+
+    def _go_to_pos(self, position):
+        print("Already Exists so i am going to move")
+        global_position = self.parent.mapToGlobal(position)
+
+        self._menu.move(global_position)
 
     def _on_menu_about_to_hide(self):
         """Called when the context menu is about to hide - restart autohide timer if enabled"""

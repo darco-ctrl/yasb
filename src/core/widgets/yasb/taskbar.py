@@ -498,6 +498,7 @@ class TaskbarWidget(BaseWidget):
         self._recycle_bin_state = {"is_empty": True}
         self._pending_pinned_recreations = set()  # Track pending placeholder recreations
         self._minimized_hwnds = set()
+        self._current_focused_window = 0
 
         # Initialize pin manager for pinned apps functionality
         self._pin_manager = PinManager()
@@ -2220,6 +2221,8 @@ class TaskbarWidget(BaseWidget):
                 # still iconic, and being off screen outranks being the activation target.
                 if target_hwnd is not None and target_hwnd in members and not self._is_minimized(members):
                     new_cls = f"{base_cls} foreground"
+                    title = self._window_buttons.get(target_hwnd, ("Unknown",))[0]
+                    print(f"window changed to: {title}")
 
                 if w.property("class") != new_cls and not ("flashing" in new_cls and self._flash_owns(w)):
                     w.setProperty("class", new_cls)

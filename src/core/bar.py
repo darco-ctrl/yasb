@@ -56,7 +56,7 @@ class Bar(QWidget):
         self._dimensions = self.config.dimensions.model_dump()
         self._padding = self.config.padding.model_dump()
         self._animation = self.config.animation.model_dump()
-        self._context_menu = self.config.context_menu
+        self._enable_context_menu = self.config.context_menu
         self._layouts = self.config.layouts
         self._autohide_bar = self._window_flags["auto_hide"]
         self._widgets = widgets  # Store widgets reference for context menu
@@ -70,6 +70,7 @@ class Bar(QWidget):
         self._auto_width_manager = None
         self._cli_manager = None
         self._target_screen = bar_screen
+        self._context_menu: BarContextMenu | None = None
 
         self.screen_name = self._target_screen.name()
         self.app_bar_edge = (
@@ -354,7 +355,7 @@ class Bar(QWidget):
 
     def contextMenuEvent(self, event):
         """Handle right-click context menu"""
-        if not self._context_menu or not self.rect().contains(event.pos()):
+        if not self._enable_context_menu or not self.rect().contains(event.pos()):
             event.ignore()
             return
 
@@ -368,10 +369,13 @@ class Bar(QWidget):
                     return
                 parent_widget = parent_widget.parent()
 
-        BarContextMenu(
-            parent=self,
-            bar_name=self._bar_name,
-            widgets=self._widgets,
-            widget_config_map=self._widget_config_map,
-            autohide_bar=self._autohide_bar,
-        ).show(event.pos())
+        if not self._context_menu:
+            self._context_menu = BarContextMenu(
+                parent=self,
+                bar_name=self._bar_name,
+                widgets=self._widgets,
+                widget_config_map=self._widget_config_map,
+                autohide_bar=self._autohide_bar,
+            ).show(event.pos())
+        else:
+            self._context_menu._go_to_pos(position=event.pos())
