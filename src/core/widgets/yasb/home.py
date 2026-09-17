@@ -81,7 +81,7 @@ class HomeWidget(BaseWidget):
         self._menu.setProperty("class", "home-menu")
 
         # Create main vertical layout for the popup
-        main_layout = QVBoxLayout(self._menu)
+        main_layout = QVBoxLayout(self._menu._popup_content)
         main_layout.setSpacing(0)
         main_layout.setContentsMargins(0, 0, 0, 0)
 
@@ -131,7 +131,8 @@ class HomeWidget(BaseWidget):
             self._add_menu_item(main_layout, self.config.menu_labels.lock, lambda: self.power_operations.lock())
             self._add_menu_item(main_layout, self.config.menu_labels.logout, lambda: self.power_operations.signout())
 
-        self._menu.adjustSize()
+        self._menu._popup_content.adjustSize()
+        self._menu.resize(self._menu._popup_content.sizeHint())
         self._menu.setPosition(
             alignment=self.config.alignment,
             direction=self.config.direction,

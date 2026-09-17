@@ -184,7 +184,7 @@ class PowerMenuWidget(BaseWidget):
             )
             self._popup.setProperty("class", "power-menu-compact")
 
-            main_layout = QVBoxLayout(self._popup)
+            main_layout = QVBoxLayout(self._popup._popup_content)
             main_layout.setSpacing(0)
             main_layout.setContentsMargins(0, 0, 0, 0)
 
@@ -293,7 +293,8 @@ class PowerMenuWidget(BaseWidget):
 
             main_layout.addWidget(buttons_frame)
 
-        self._popup.adjustSize()
+        self._popup._popup_content.adjustSize()
+        self._popup.resize(self._popup._popup_content.sizeHint())
         self._popup.setPosition(
             alignment=popup_cfg.alignment,
             direction=popup_cfg.direction,

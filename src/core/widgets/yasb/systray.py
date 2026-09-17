@@ -17,14 +17,13 @@ from PyQt6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLayout,
-    QMenu,
     QPushButton,
 )
 from win32con import HWND_BROADCAST
 
 from core.bar_helper import AppBarManager
 from core.utils.system import app_data_path
-from core.utils.utilities import refresh_widget_style
+from core.utils.utilities import AnimatedContextMenu, refresh_widget_style
 from core.utils.win32.bindings import IsWindow
 from core.utils.win32.bindings.user32 import RegisterWindowMessage, SendNotifyMessage
 from core.utils.win32.constants import (
@@ -232,7 +231,7 @@ class SystrayWidget(BaseWidget):
 
     def show_context_menu(self, pos: QPoint):
         """Show the context menu for the unpinned visibility button"""
-        menu = QMenu(self.window())
+        menu = AnimatedContextMenu(self.window())
         apply_qmenu_style(menu)
         menu.setProperty("class", "context-menu")
         menu.setContentsMargins(0, 0, 0, 0)
@@ -242,11 +241,7 @@ class SystrayWidget(BaseWidget):
             return
         refresh_action.triggered.connect(self.refresh_systray)
 
-        menu.popup(self.unpinned_vis_btn.mapToGlobal(pos))
-        try:
-            menu.activateWindow()
-        except Exception:
-            pass
+        menu.show_animated(self.unpinned_vis_btn.mapToGlobal(pos))
 
     def refresh_systray(self):
         """Refresh the icons by sending a message to the tray monitor"""

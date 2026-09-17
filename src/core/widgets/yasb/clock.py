@@ -30,7 +30,7 @@ from PyQt6.QtWidgets import (
 
 from core.config import HOME_CONFIGURATION_DIR
 from core.utils.tooltip import set_tooltip
-from core.utils.utilities import PopupWidget, refresh_widget_style
+from core.utils.utilities import AnimatedContextMenu, PopupWidget, refresh_widget_style
 from core.utils.win32.backdrop import enable_blur
 from core.utils.win32.utils import apply_qmenu_style
 from core.validation.widgets.yasb.clock import ClockConfig
@@ -720,7 +720,7 @@ class ClockWidget(BaseWidget):
         # Create main layout
         layout = QHBoxLayout()
         layout.setProperty("class", "calendar-layout")
-        self._yasb_calendar.setLayout(layout)
+        self._yasb_calendar._popup_content.setLayout(layout)
 
         # Left side: Today Date
         date_layout = QVBoxLayout()
@@ -869,8 +869,8 @@ class ClockWidget(BaseWidget):
 
             layout.addWidget(right_frame)
 
-        self._yasb_calendar.adjustSize()
-
+        self._yasb_calendar._popup_content.adjustSize()
+        self._yasb_calendar.resize(self._yasb_calendar._popup_content.sizeHint())
         self._yasb_calendar.setPosition(
             alignment=self.config.calendar.alignment,
             direction=self.config.calendar.direction,
@@ -882,7 +882,7 @@ class ClockWidget(BaseWidget):
 
     def _show_context_menu(self):
         """Build and display the context menu for the clock widget."""
-        menu = QMenu(self.window())
+        menu = AnimatedContextMenu(self.window())
         apply_qmenu_style(menu)
         menu.setProperty("class", "context-menu")
         if len(self._timezones_list) > 1:
@@ -938,8 +938,7 @@ class ClockWidget(BaseWidget):
             new_y = bar_top_left.y() - menu_size.height() - margin
         pos = QPoint(int(new_x), int(new_y))
 
-        menu.popup(pos)
-        menu.activateWindow()
+        menu.show_animated(pos)
 
     def _set_timezone(self, timezone):
         """Make the supplied timezone the active one (and rotate the list)."""

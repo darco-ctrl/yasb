@@ -504,10 +504,11 @@ class VolumeWidget(BaseWidget):
 
             # Store expanded state
             self.app_volumes_expanded = False
-        self.dialog.setLayout(layout)
+        self.dialog._popup_content.setLayout(layout)
 
-        # Position the dialog
-        self.dialog.adjustSize()
+        # Position And Size the dialog
+        self.dialog._popup_content.adjustSize()
+        self.dialog.resize(self.dialog._popup_content.sizeHint())
         self.dialog.setPosition(
             alignment=self.config.audio_menu.alignment,
             direction=self.config.audio_menu.direction,

@@ -227,7 +227,7 @@ class MediaWidget(BaseWidget):
         self.dialog.setProperty("class", "media-menu")
 
         # Create main layout for the popup dialog
-        main_layout = QVBoxLayout(self.dialog)
+        main_layout = QVBoxLayout(self.dialog._popup_content)
         main_layout.setContentsMargins(12, 12, 12, 12)
         main_layout.setSpacing(0)
 
@@ -456,7 +456,8 @@ class MediaWidget(BaseWidget):
             self._time_slider_container.setVisible(False)
             QTimer.singleShot(0, self.dialog.adjustSize)
 
-        self.dialog.adjustSize()
+        self.dialog._popup_content.adjustSize()
+        self.dialog.resize(self.dialog._popup_content.sizeHint())
         self.dialog.setPosition(
             alignment=self.config.media_menu.alignment,
             direction=self.config.media_menu.direction,

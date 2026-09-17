@@ -449,7 +449,7 @@ class WifiMenu(QObject):
             self.menu_config.border_color,
         )
         self.popup_window.setProperty("class", "wifi-menu")
-        main_layout = QVBoxLayout(self.popup_window)
+        main_layout = QVBoxLayout(self.popup_window._popup_content)
         main_layout.setSpacing(0)
         main_layout.setContentsMargins(0, 0, 0, 0)
 
@@ -499,7 +499,8 @@ class WifiMenu(QObject):
         main_layout.addWidget(self.menu_wifi_list)
         main_layout.addWidget(footer_container)
 
-        self.popup_window.adjustSize()
+        self.popup_window._popup_content.adjustSize()
+        self.popup_window.resize(self.popup_window._popup_content.sizeHint())
         self.popup_window.setPosition(
             alignment=self.menu_config.alignment,
             direction=self.menu_config.direction,

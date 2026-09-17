@@ -2,7 +2,7 @@ import re
 from datetime import timedelta
 
 import humanize
-from PyQt6.QtCore import QTimer
+from PyQt6.QtCore import QEasingCurve, QPropertyAnimation, QTimer
 from PyQt6.QtWidgets import QLabel
 
 from core.utils.utilities import build_progress_widget, refresh_widget_style
@@ -45,11 +45,48 @@ class BatteryWidget(BaseWidget):
 
     def _toggle_label(self):
         self._show_alt_label = not self._show_alt_label
-        for widget in self._widgets:
-            widget.setVisible(not self._show_alt_label)
-        for widget in self._widgets_alt:
-            widget.setVisible(self._show_alt_label)
+        for label in self._widgets_alt:
+            self._animate_alt_label(self._show_alt_label, label)
         self._update_label()
+
+    def _animate_alt_label(self, visible: bool, label: QLabel):
+        if visible:
+            self._show_animated(label)
+
+        else:
+            self._hide_animated(label)
+
+    def _show_animated(self, label: QLabel):
+        width = label.sizeHint().width()
+
+        label.setMaximumWidth(1)
+        label.setVisible(True)
+
+        animation = QPropertyAnimation(label, b"maximumWidth", self)
+        animation.setDuration(350)
+        animation.setStartValue(1)
+        animation.setEndValue(width)
+        animation.setEasingCurve(QEasingCurve.Type.OutQuad)
+
+        self._animation = animation
+        animation.start()
+
+    def _hide_animated(self, label: QLabel):
+        current_width = label.width()
+
+        animation = QPropertyAnimation(label, b"maximumWidth", self)
+        animation.setDuration(350)
+        animation.setStartValue(current_width)
+        animation.setEndValue(1)
+        animation.setEasingCurve(QEasingCurve.Type.OutQuad)
+
+        animation.finished.connect(lambda: self._on_animation_finished(label=label))
+
+        self._animation = animation
+        animation.start()
+
+    def _on_animation_finished(self, label: QLabel):
+        label.setVisible(False)
 
     def _get_time_remaining(self) -> str:
         if not self._battery_state:

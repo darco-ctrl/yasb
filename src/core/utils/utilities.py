@@ -17,6 +17,7 @@ from PyQt6.QtCore import (
 )
 from PyQt6.QtGui import (
     QFontMetrics,
+    QGuiApplication,
     QHideEvent,
     QPainter,
     QPaintEvent,
@@ -128,6 +129,110 @@ def get_app_identifier():
         return "YASB"
 
 
+class AnimatedContextMenu(QMenu):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+
+        self._animation = None
+        self._is_closing = False
+        self._final_geometry = None
+
+    def show_animated(self, click_position, duration=300):
+        menu_size = self.sizeHint()
+        screen = QGuiApplication.screenAt(click_position)
+
+        if not screen:
+            screen = QGuiApplication.primaryScreen()
+
+        available_geometry = screen.availableGeometry()
+
+        padding = 8
+
+        x = click_position.x()
+        y = click_position.y()
+
+        right = available_geometry.x() + available_geometry.width()
+        bottom = available_geometry.y() + available_geometry.height()
+
+        if x + menu_size.width() > right:
+            x = right - menu_size.width() - padding
+
+        if y + menu_size.height() > bottom:
+            y = bottom - menu_size.height() - padding
+
+        x = max(x, available_geometry.x() + padding)
+        y = max(y, available_geometry.y() + padding)
+
+        position = QPoint(x, y)
+
+        self.adjustSize()
+
+        final_geometry = QRect(
+            position.x(),
+            position.y(),
+            self.sizeHint().width(),
+            self.sizeHint().height(),
+        )
+
+        self._final_geometry = final_geometry
+
+        start_y = final_geometry.top()
+        start_x = final_geometry.left()
+
+        start_geometry = QRect(
+            start_x,
+            start_y,
+            final_geometry.width(),
+            1,
+        )
+
+        self.setGeometry(start_geometry)
+        self.show()
+        self.activateWindow()
+
+        self._animation = QPropertyAnimation(self, b"geometry", self)
+        self._animation.setDuration(duration)
+        self._animation.setStartValue(start_geometry)
+        self._animation.setEndValue(final_geometry)
+        self._animation.setEasingCurve(QEasingCurve.Type.OutQuad)
+        self._animation.start()
+
+    def hide_animated(self, duration=300):
+        current_geometry = self.geometry()
+
+        end_x: int = current_geometry.left()
+        end_y: int = current_geometry.top()
+
+        end_geometry = QRect(
+            end_x,
+            end_y,
+            current_geometry.width(),
+            1,
+        )
+
+        self._animation = QPropertyAnimation(self, b"geometry", self)
+        self._animation.setDuration(duration)
+        self._animation.setStartValue(current_geometry)
+        self._animation.setEndValue(end_geometry)
+        self._animation.setEasingCurve(QEasingCurve.Type.OutQuad)
+
+        self._animation.finished.connect(self._finish_hide)
+        self._animation.start()
+
+    def _finish_hide(self):
+        self.hide()
+        self.deleteLater()
+
+    def closeEvent(self, event):
+        event.ignore()
+
+        if self._is_closing:
+            return
+
+        self._is_closing = True
+        self.hide_animated()
+
+
 class PopupWidget(QWidget):
     """
     A custom popup widget that can be used to create a frameless, translucent window.
@@ -190,12 +295,17 @@ class PopupWidget(QWidget):
         self._pinnable = pinnable
         self._pinned = False
         self._drag_pos = None
-        # Create the inner frame
-        self._popup_content = QFrame(self)
 
-        self._fade_animation = QPropertyAnimation(self, b"windowOpacity")
-        self._fade_animation.setDuration(80)
-        self._fade_animation.finished.connect(self._on_animation_finished)
+        self._canvas = QWidget(self)
+        self._popup_content = QFrame(self._canvas)
+
+        # Animations
+        self._show_animation: QPropertyAnimation = QPropertyAnimation(self._canvas, b"geometry", self)
+        self._show_animation.setDuration(300)
+
+        self._hide_animation: QPropertyAnimation = QPropertyAnimation(self._canvas, b"geometry", self)
+        self._hide_animation.setDuration(300)
+        self._hide_animation.finished.connect(self._on_hide_animation_finished)
 
         self._is_closing = False
 
@@ -247,6 +357,7 @@ class PopupWidget(QWidget):
             # Ensure the popup fits vertically
             y = max(screen_geometry.top(), min(global_position.y(), screen_geometry.bottom() - self.height()))
             global_position = QPoint(x, y)
+
         self.move(global_position)
 
     def set_pinned(self, pinned: bool) -> None:
@@ -302,7 +413,7 @@ class PopupWidget(QWidget):
         separator.setStyleSheet("border:none")
         layout.addWidget(separator)
 
-    def _on_animation_finished(self):
+    def _on_hide_animation_finished(self):
         """Handle animation completion."""
         if self._is_closing:
             # Remove from registry
@@ -321,33 +432,61 @@ class PopupWidget(QWidget):
             except Exception:
                 pass
 
+    def show_animated(self):
+        current_geometry = self._canvas.geometry()
+
+        start_geometry = QRect(
+            current_geometry.x(),
+            current_geometry.y(),
+            current_geometry.width(),
+            1,
+        )
+
+        end_geometry = QRect(
+            current_geometry.x(),
+            current_geometry.y(),
+            current_geometry.width(),
+            current_geometry.height(),
+        )
+
+        self._show_animation.setStartValue(start_geometry)
+        self._show_animation.setEndValue(end_geometry)
+        self._show_animation.setEasingCurve(QEasingCurve.Type.OutQuad)
+
+        self._show_animation.start()
+
     def hide_animated(self):
         """Hide the popup with animation."""
         if self._is_closing:
             return
         try:
-            if self._fade_animation.state() == QPropertyAnimation.State.Running:
-                self._fade_animation.stop()
+            if self._hide_animation.state() == QPropertyAnimation.State.Running:
+                self._hide_animation.stop()
         except Exception:
             pass
 
-        current_opacity = self.windowOpacity()
-        if current_opacity <= 0.0:
-            current_opacity = 1.0
-            self.setWindowOpacity(1.0)
-
         self._is_closing = True
 
-        self._fade_animation.setEasingCurve(QEasingCurve.Type.InCubic)
-        self._fade_animation.setStartValue(current_opacity)
-        self._fade_animation.setEndValue(0.0)
-        self._fade_animation.start()
+        current_geometry = self._canvas.geometry()
+
+        end_geometry = QRect(
+            current_geometry.x(),
+            current_geometry.y(),
+            current_geometry.width(),
+            1,
+        )
+
+        self._hide_animation.setStartValue(current_geometry)
+        self._hide_animation.setEndValue(end_geometry)
+        self._hide_animation.setEasingCurve(QEasingCurve.Type.OutQuad)
+
+        self._hide_animation.start()
 
     def hide(self):
         """Hide the popup immediately without animation."""
         try:
-            if self._fade_animation.state() == QPropertyAnimation.State.Running:
-                self._fade_animation.stop()
+            if self._hide_animation.state() == QPropertyAnimation.State.Running:
+                self._hide_animation.stop()
         except Exception:
             pass
 
@@ -377,6 +516,9 @@ class PopupWidget(QWidget):
         """Show the popup with toggle support."""
         parent_id = id(self._parent)
 
+        self._canvas.setGeometry(0, 0, self.width(), self.height())
+        self._popup_content.setGeometry(0, 0, self._canvas.width(), self._canvas.height())
+
         if parent_id in PopupWidget._open_popups:
             existing_popup = PopupWidget._open_popups[parent_id]
             if existing_popup is not self:
@@ -391,6 +533,7 @@ class PopupWidget(QWidget):
                 PopupWidget._open_popups.pop(parent_id, None)
 
         super().show()
+        self.show_animated()
 
     def showEvent(self, event):
         # Install event filter only when popup is actually shown
@@ -416,21 +559,14 @@ class PopupWidget(QWidget):
         # Reset closing state and stop any ongoing fade animation
         self._is_closing = False
         try:
-            if self._fade_animation.state() == QPropertyAnimation.State.Running:
-                self._fade_animation.stop()
+            if self._hide_animation.state() == QPropertyAnimation.State.Running:
+                self._hide_animation.stop()
         except Exception:
             pass
-
-        # Set initial opacity and show
-        self.setWindowOpacity(0.0)
 
         super().showEvent(event)
 
         self.activateWindow()
-        self._fade_animation.setEasingCurve(QEasingCurve.Type.OutCubic)
-        self._fade_animation.setStartValue(0.0)
-        self._fade_animation.setEndValue(1.0)
-        self._fade_animation.start()
 
     def eventFilter(self, obj, event):
         if not isinstance(obj, QObject):
@@ -481,8 +617,17 @@ class PopupWidget(QWidget):
         super().hideEvent(event)
 
     def resizeEvent(self, event):
+        if (
+            self._show_animation.state() == QPropertyAnimation.State.Running
+            and self._hide_animation.state() == QPropertyAnimation.State.Running
+        ):
+            super().resizeEvent(event)
+            return
+
         # reset geometry
-        self._popup_content.setGeometry(0, 0, self.width(), self.height())
+        self._canvas.setGeometry(0, 0, self.width(), self.height())
+        self._popup_content.setGeometry(0, 0, self._canvas.width(), self._canvas.height())
+
         # reposition if we've already called setPosition()
         if hasattr(self, "_pos_args"):
             alignment, direction, offset_left, offset_top = self._pos_args

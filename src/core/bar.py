@@ -369,13 +369,10 @@ class Bar(QWidget):
                     return
                 parent_widget = parent_widget.parent()
 
-        if not self._context_menu:
-            self._context_menu = BarContextMenu(
-                parent=self,
-                bar_name=self._bar_name,
-                widgets=self._widgets,
-                widget_config_map=self._widget_config_map,
-                autohide_bar=self._autohide_bar,
-            ).show(event.pos())
-        else:
-            self._context_menu._go_to_pos(position=event.pos())
+        BarContextMenu(
+            parent=self,
+            bar_name=self._bar_name,
+            widgets=self._widgets,
+            widget_config_map=self._widget_config_map,
+            autohide_bar=self._autohide_bar,
+        ).show(event.pos())

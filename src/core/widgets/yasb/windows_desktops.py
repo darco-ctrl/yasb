@@ -18,7 +18,7 @@ from PyQt6.QtWidgets import (
 )
 
 from core.utils.system import is_windows_10
-from core.utils.utilities import PopupWidget, refresh_widget_style
+from core.utils.utilities import AnimatedContextMenu, PopupWidget, refresh_widget_style
 from core.utils.win32.utils import apply_qmenu_style
 from core.validation.widgets.yasb.windows_desktops import WindowsDesktopsConfig
 from core.widgets.base import BaseWidget
@@ -77,7 +77,7 @@ class WorkspaceButton(QPushButton):
             logging.exception("Failed to focus desktop at index %s", self.workspace_index)
 
     def _show_context_menu(self):
-        menu = QMenu(self.window())
+        menu = AnimatedContextMenu(self.window())
         apply_qmenu_style(menu)
         # Assign a class for global styling; apply rounded corners via helper
         menu.setProperty("class", "context-menu")
@@ -156,8 +156,7 @@ class WorkspaceButton(QPushButton):
             act_set_wall_all.triggered.connect(self.set_wallpaper_all)
             menu.addAction(act_set_wall_all)
 
-        menu.popup(QCursor.pos())
-        menu.activateWindow()
+        menu.show_animated(QCursor.pos())
 
     def set_wallpaper(self):
         image_path, _ = QFileDialog.getOpenFileName(
@@ -188,7 +187,7 @@ class WorkspaceButton(QPushButton):
 
         popup = PopupWidget(
             self.parent_widget,
-            blur=True,
+            blur=False,
             round_corners=True,
             round_corners_type="normal",
             border_color="System",
@@ -199,7 +198,7 @@ class WorkspaceButton(QPushButton):
         layout = QVBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
-        popup.setLayout(layout)
+        popup._popup_content.setLayout(layout)
 
         container_frame = QFrame()
         container_frame.setProperty("class", "windows-desktops-popup-container")
@@ -258,7 +257,9 @@ class WorkspaceButton(QPushButton):
         layout.addWidget(container_frame)
         layout.addWidget(footer_frame)
 
-        popup.adjustSize()
+        popup._popup_content.adjustSize()
+        popup.resize(popup._popup_content.sizeHint())
+
         popup.setPosition(
             alignment="center",
             direction="down",
